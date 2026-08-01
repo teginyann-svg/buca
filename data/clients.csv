@@ -1,0 +1,5 @@
+id,gender,lastName,firstName,birthDay,birthMonth,birthYear,address,phone,email,recettes,firstVisitAt,lastVisitAt,isSuspect,suspectReasons,validatedAt,createdAt,updatedAt
+3249764a-2d3b-42e3-a4a3-342e6cfa5683,,,test,,,,,0789491666,,,2026-08-05,2026-08-08,0,,,2026-07-31T22:51:14.673Z,2026-07-31T23:32:35.564Z
+81e4d4c7-305c-482d-b1b0-95636d429ce1,F,Nora,Tegin,12,11,,"Sentier de Collonge 3
+1820 
+Territet",079 868 80 98,noomiusher@gmail.com,,,,0,,,2026-07-31T22:10:49.024Z,2026-07-31T22:10:49.024Z

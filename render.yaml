@@ -1,0 +1,26 @@
+# Blueprint Render — API Reservsalon
+# Docs : https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: reservsalon-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build:api
+    startCommand: npx next start -p $PORT
+    healthCheckPath: /api/holidays
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: CORS_ORIGINS
+        value: https://kod200.com,https://www.kod200.com
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_CALENDAR_ID
+        sync: false
+      - key: SALON_ADMIN_CODE
+        sync: false
