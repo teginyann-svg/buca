@@ -15,7 +15,8 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@local/reservation-link": ["./src/lib/empty-local-link.tsx"]
     }
   },
   "include": [

@@ -2,8 +2,9 @@ import path from "node:path";
 
 /**
  * Répertoire des JSON locaux (clients, device-bookings, estimates).
- * Sur Vercel le FS du projet est en lecture seule → /tmp (éphémère).
- * Pour une vraie persistance : VPS / volume, ou Backup CSV régulier.
+ * Sur Render/Vercel sans volume : /tmp (éphémère → perdu au sleep/redeploy).
+ * Pour persister : monter un disque et définir DATA_DIR, + Backup CSV régulier.
+ * Les RDV restent dans Google Calendar (indépendant de ce dossier).
  */
 export function getDataDir(): string {
   if (process.env.DATA_DIR?.trim()) {

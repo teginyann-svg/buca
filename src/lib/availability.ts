@@ -57,8 +57,8 @@ export function isBookableDate(
 /**
  * Build free slots for a calendar day in Europe/Zurich,
  * excluding busy intervals from Google Calendar.
- * Dernier début = fermeture − LAST_START_BEFORE_CLOSE_MINUTES (ex. 16:45 le samedi).
- * La fin du RDV peut dépasser l’heure de fermeture.
+ * Dernier début = fermeture − durée des services + latitude
+ * (ex. 19:00, 90 min, latitude 15 → dernier début 17:45, fin 19:15).
  */
 export function computeFreeSlots(
   dateIso: string,
@@ -82,7 +82,10 @@ export function computeFreeSlots(
 
   let cursor = day.hour(startH).minute(startM).second(0).millisecond(0);
   const dayEnd = day.hour(endH).minute(endM).second(0).millisecond(0);
-  const lastStart = dayEnd.subtract(LAST_START_BEFORE_CLOSE_MINUTES, "minute");
+  // Fin du RDV autorisée jusqu’à fermeture + latitude (15 min).
+  const lastStart = dayEnd
+    .subtract(duration, "minute")
+    .add(LAST_START_BEFORE_CLOSE_MINUTES, "minute");
   const earliest = now.tz(TIMEZONE).add(MIN_LEAD_MINUTES, "minute");
 
   const busyParsed = busy.map((b) => ({

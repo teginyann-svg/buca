@@ -16,16 +16,22 @@ export const SLOT_DURATION_MINUTES = 90;
 
 export const TIMEZONE = "Europe/Zurich";
 
+/** Safe on Vite client (no `process`) and Next server. */
+function serverEnv(key: string): string | undefined {
+  if (typeof process === "undefined") return undefined;
+  return process.env?.[key];
+}
+
 /** Google Calendar ID (email or "primary"). */
 export const CALENDAR_ID =
-  process.env.GOOGLE_CALENDAR_ID ?? "redroomcoiffure@gmail.com";
+  serverEnv("GOOGLE_CALENDAR_ID") ?? "redroomcoiffure@gmail.com";
 
 /**
  * Agenda public Google « Jours fériés en Suisse »
  * (déjà abonné sur le compte salon).
  */
 export const SWISS_HOLIDAYS_CALENDAR_ID =
-  process.env.GOOGLE_HOLIDAYS_CALENDAR_ID ??
+  serverEnv("GOOGLE_HOLIDAYS_CALENDAR_ID") ??
   "fr.ch#holiday@group.v.calendar.google.com";
 
 export const SALON_NAME = "Réservez un RDV avec Danijela";
@@ -35,7 +41,8 @@ export const SALON_LOCATION = "Red Room Coiffure";
 
 /**
  * Opening hours (Europe/Zurich).
- * Mer–ven 09:00–19:00 (dernier début 18:45), sam 09:00–17:00 (dernier début 16:45).
+ * Mer–ven 09:00–19:00, sam 09:00–17:00.
+ * Dernier début = fermeture − durée services + latitude 15 min.
  */
 export const OPENING_HOURS: OpeningHours = {
   wednesday: { start: "09:00", end: "19:00" },
@@ -45,15 +52,15 @@ export const OPENING_HOURS: OpeningHours = {
 };
 
 /** How many days ahead clients can book. */
-export const BOOKING_HORIZON_DAYS = 60;
+export const BOOKING_HORIZON_DAYS = 365;
 
 /** Minimum lead time before a slot can be booked (minutes). */
 export const MIN_LEAD_MINUTES = 60;
 
 /**
- * Dernier début de RDV possible = fermeture − ce délai.
- * Ex. samedi 17:00 → dernier créneau 16:45 ; mer–ven 19:00 → 18:45.
- * La prestation peut se terminer après l’heure de fermeture.
+ * Latitude après l’heure de fermeture (minutes).
+ * Dernier début = fermeture − durée services + cette latitude.
+ * Ex. mer–ven 19:00, 90 min → dernier début 17:45 (fin 19:15).
  */
 export const LAST_START_BEFORE_CLOSE_MINUTES = 15;
 

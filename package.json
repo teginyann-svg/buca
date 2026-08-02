@@ -13,7 +13,8 @@
     "start:api": "next start -p ${PORT:-3001}",
     "preview": "vite preview",
     "lint": "next lint",
-    "auth:google": "tsx scripts/google-oauth.ts"
+    "auth:google": "tsx scripts/google-oauth.ts",
+    "clients:sync": "tsx scripts/sync-clients-from-calendar.ts"
   },
   "dependencies": {
     "@ant-design/cssinjs": "^1.23.0",
