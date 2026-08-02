@@ -13,10 +13,16 @@ import {
   Table,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { DeleteOutlined, CheckOutlined, DownloadOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  CheckOutlined,
+  DownloadOutlined,
+  PlusOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import { Link } from "react-router-dom";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ADMIN_HEADER } from "@/lib/admin-constants";
 import {
   formatBirthDate,
@@ -95,7 +101,9 @@ export default function ClientsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [form] = Form.useForm<ClientFormValues>();
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = sessionStorage.getItem(STORAGE_KEY);
@@ -189,6 +197,52 @@ export default function ClientsPage() {
       message.success("Backup CSV téléchargé.");
     } catch (err) {
       message.error(err instanceof Error ? err.message : "Export impossible.");
+    }
+  }
+
+  function requestCsvImport() {
+    if (!salonCode) return;
+    modal.confirm({
+      title: "Importer un CSV ?",
+      content:
+        "Le fichier clients actuel sera entièrement remplacé par ce backup CSV. Cette action est irréversible.",
+      okText: "Choisir un fichier",
+      cancelText: "Annuler",
+      onOk: () => {
+        csvInputRef.current?.click();
+      },
+    });
+  }
+
+  async function onCsvFileSelected(file: File | undefined) {
+    if (!salonCode || !file) return;
+    setImporting(true);
+    try {
+      const csv = await file.text();
+      const res = await apiFetch("/api/clients/import", {
+        method: "POST",
+        headers: {
+          [ADMIN_HEADER]: salonCode,
+          "Content-Type": "text/csv; charset=utf-8",
+        },
+        body: csv,
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        imported?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error ?? "Import impossible.");
+      }
+      message.success(
+        `${data.imported ?? 0} fiche(s) importée(s) depuis le CSV.`,
+      );
+      await loadClients(salonCode);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "Import impossible.");
+    } finally {
+      setImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = "";
     }
   }
 
@@ -428,21 +482,40 @@ export default function ClientsPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 style={{ minWidth: 240, flex: 1 }}
               />
-              <Button
-                size="large"
-                icon={<DownloadOutlined />}
-                onClick={() => void downloadCsvBackup()}
-              >
-                Backup CSV
-              </Button>
-              <Button
-                type="primary"
-                size="large"
-                icon={<PlusOutlined />}
-                onClick={openCreate}
-              >
-                Nouveau client
-              </Button>
+              <Space wrap>
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: "none" }}
+                  onChange={(e) =>
+                    void onCsvFileSelected(e.target.files?.[0])
+                  }
+                />
+                <Button
+                  size="large"
+                  icon={<DownloadOutlined />}
+                  onClick={() => void downloadCsvBackup()}
+                >
+                  Backup CSV
+                </Button>
+                <Button
+                  size="large"
+                  icon={<UploadOutlined />}
+                  loading={importing}
+                  onClick={requestCsvImport}
+                >
+                  Import CSV
+                </Button>
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<PlusOutlined />}
+                  onClick={openCreate}
+                >
+                  Nouveau client
+                </Button>
+              </Space>
             </Space>
           </section>
 

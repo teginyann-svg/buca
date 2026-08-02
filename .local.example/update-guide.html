@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reservsalon — maj locale → kod200.com/buca</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --text: #2c2426;
+        --muted: #7a7073;
+        --border: #e6e0dc;
+        --bg: #f2f0ee;
+        --card: #fff;
+        --accent: #9a3d4f;
+      }
+      body {
+        margin: 0;
+        font-family: Figtree, system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 0.5rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin: 1.75rem 0 0.5rem;
+      }
+      p,
+      li {
+        font-size: 0.95rem;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1rem 1.1rem;
+        margin-top: 1rem;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.82rem;
+      }
+      pre {
+        background: #f7f5f4;
+        border-radius: 8px;
+        padding: 0.75rem 0.9rem;
+        overflow-x: auto;
+      }
+      a {
+        color: var(--accent);
+      }
+      .warn {
+        border-left: 3px solid var(--accent);
+        padding-left: 0.75rem;
+        margin-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="muted">Espace local uniquement — pas sur le site déployé ni dans git.</p>
+      <h1>Après un changement (contenu / fonctionnalités)</h1>
+      <p>
+        Front : page réservation ReactPress
+        <a href="https://kod200.com/buca" target="_blank" rel="noreferrer"
+          >kod200.com/buca</a
+        >.
+        API : <code>https://buca.onrender.com</code> (Render).
+      </p>
+
+      <div class="card">
+        <h2>1. Développer en local</h2>
+        <pre>cd ~/Desktop/Reservsalon
+npm run dev</pre>
+        <p class="muted">
+          UI Vite + API Next. Tester la réservation, semaine, clients, etc.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>2. Si l’API a changé</h2>
+        <ol>
+          <li>Commit / push du repo si besoin.</li>
+          <li>Sur Render : redeploy du service <code>buca</code> (ou auto-deploy).</li>
+          <li>Vérifier <code>https://buca.onrender.com/api/holidays</code> → 200.</li>
+        </ol>
+        <p class="muted">
+          Variables : <code>render.env</code> / dashboard Render (pas dans git).
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>3. Build du front ReactPress</h2>
+        <pre>cd ~/Desktop/Reservsalon
+npm run build</pre>
+        <p>Contrôler le dossier <code>build/</code> :</p>
+        <ul>
+          <li><code>asset-manifest.json</code> (obligatoire pour ReactPress)</li>
+          <li><code>static/index-….js</code> + <code>.css</code></li>
+          <li><code>index.html</code> + images</li>
+        </ul>
+        <p class="warn">
+          Ce lien « marche à suivre » et le dossier <code>.local/</code> ne sont
+          <strong>pas</strong> inclus dans <code>build/</code>.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>4. Uploader sur WordPress</h2>
+        <ol>
+          <li>
+            FTP →
+            <code>wp-content/reactpress/apps/buca/</code>
+          </li>
+          <li>Supprimer l’ancien contenu de <code>build/</code> (ou écraser).</li>
+          <li>
+            Uploader le <strong>dossier</strong> local
+            <code>build/</code> (pas un second <code>build</code> à l’intérieur).
+          </li>
+          <li>
+            Chemin final :
+            <code>…/apps/buca/build/asset-manifest.json</code>
+          </li>
+          <li>Ne laisser <strong>aucun</strong> dossier <code>dist/</code> à côté.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>5. Vérifier en ligne</h2>
+        <ol>
+          <li>
+            <a href="https://kod200.com/buca/" target="_blank" rel="noreferrer"
+              >https://kod200.com/buca/</a
+            >
+            (hard refresh)
+          </li>
+          <li><code>/#/semaine</code>, <code>/#/clients</code></li>
+          <li>DevTools → Network : JS ReactPress en 200, appels API Render OK</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>Rappels</h2>
+        <ul>
+          <li>
+            Lien local sur la page réservation = fichier dans
+            <code>.local/</code> (gitignored) + alias Vite en
+            <code>development</code> seulement.
+          </li>
+          <li>
+            Doc déploiement détaillée aussi dans
+            <code>DEPLOY-REACTPRESS.md</code> (celle-ci peut être commitée).
+          </li>
+          <li>
+            Free Render peut dormir : 1ʳᵉ requête API parfois lente.
+          </li>
+        </ul>
+      </div>
+    </main>
+  </body>
+</html>

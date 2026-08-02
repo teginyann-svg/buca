@@ -193,6 +193,8 @@ export async function POST(request: Request) {
       ...(disposableEmail ? ["Email jetable"] : []),
     ];
 
+    let clientRecorded = false;
+    let clientRecordError: string | null = null;
     try {
       await recordVisitFromBooking({
         phone: phoneCheck.digits || clientPhone,
@@ -203,7 +205,12 @@ export async function POST(request: Request) {
         isSuspect: clientSuspectReasons.length > 0,
         suspectReasons: clientSuspectReasons,
       });
+      clientRecorded = true;
     } catch (clientError) {
+      clientRecordError =
+        clientError instanceof Error
+          ? clientError.message
+          : "Écriture fichier clients impossible.";
       console.error("[api/book] clients file", clientError);
     }
 
@@ -221,6 +228,8 @@ export async function POST(request: Request) {
       nonSwissPhone,
       generatedPhone,
       disposableEmail,
+      clientRecorded,
+      clientRecordError,
     });
   } catch (error) {
     console.error("[api/book]", error);

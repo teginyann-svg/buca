@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { ClientInput, ClientRecord } from "./client-types";
-import { clientsToCsv } from "./clients-csv";
+import { clientsFromCsv, clientsToCsv } from "./clients-csv";
 import { getDataDir } from "./data-dir";
 import { isDisposableEmail } from "./disposable-emails";
-import { checkSwissPhone, phoneMatchKey } from "./swiss-phone";
+import {
+  checkSwissPhone,
+  normalizeToSwissNational,
+  phoneMatchKey,
+} from "./swiss-phone";
 
 export type { ClientGender, ClientInput, ClientRecord } from "./client-types";
 export { formatBirthDate } from "./client-types";
@@ -144,16 +148,15 @@ export async function readClients(): Promise<ClientRecord[]> {
 
 async function writeClients(clients: ClientRecord[]): Promise<void> {
   await ensureFile();
-  const { FILE_PATH } = dataPaths();
-  await fs.writeFile(
-    FILE_PATH,
-    `${JSON.stringify(clients, null, 2)}\n`,
-    "utf8",
-  );
+  const { FILE_PATH, CSV_PATH } = dataPaths();
+  const payload = `${JSON.stringify(clients, null, 2)}\n`;
+  await fs.writeFile(FILE_PATH, payload, "utf8");
+  // CSV = même source que le JSON (Backup / Import). Échec = erreur réelle.
+  await writeClientsCsvBackup(clients);
   try {
-    await writeClientsCsvBackup(clients);
-  } catch (error) {
-    console.error("[clients] CSV backup", error);
+    await fs.access(CSV_PATH);
+  } catch {
+    throw new Error(`CSV clients introuvable après écriture (${CSV_PATH}).`);
   }
 }
 
@@ -161,6 +164,19 @@ async function writeClients(clients: ClientRecord[]): Promise<void> {
 export async function exportClientsCsv(): Promise<string> {
   const clients = await readClients();
   return clientsToCsv(clients);
+}
+
+/**
+ * Remplace le fichier clients par le contenu d’un backup CSV.
+ * @returns nombre de fiches importées
+ */
+export async function importClientsFromCsv(text: string): Promise<number> {
+  const clients = clientsFromCsv(text);
+  if (clients.length === 0) {
+    throw new Error("Aucune fiche valide dans le CSV.");
+  }
+  await writeClients(clients);
+  return clients.length;
 }
 
 export async function getClientById(id: string): Promise<ClientRecord | null> {
@@ -345,7 +361,12 @@ export async function recordVisitFromBooking(input: {
   suspectReasons?: string[];
 }): Promise<ClientRecord> {
   const visitDate = input.visitDate;
-  const existing = await findClientByPhone(input.phone);
+  const phone =
+    normalizeToSwissNational(input.phone)?.trim() || input.phone.trim();
+  if (!phone) {
+    throw new Error("Téléphone manquant pour la fiche client.");
+  }
+  const existing = await findClientByPhone(phone);
   const extraReasons = input.suspectReasons ?? [];
 
   if (existing) {
@@ -363,6 +384,7 @@ export async function recordVisitFromBooking(input: {
       (input.isSuspect || extraReasons.length > 0 || existing.isSuspect);
 
     const patched = await updateClient(existing.id, {
+      phone: existing.phone?.trim() ? existing.phone : phone,
       firstVisitAt,
       lastVisitAt,
       firstName: existing.firstName || input.firstName,
@@ -375,13 +397,16 @@ export async function recordVisitFromBooking(input: {
           )
         : undefined,
     });
-    return patched ?? existing;
+    if (!patched) {
+      throw new Error("Mise à jour fiche client impossible.");
+    }
+    return patched;
   }
 
   return createClient({
     firstName: input.firstName.trim(),
     lastName: (input.lastName ?? "").trim(),
-    phone: input.phone.trim(),
+    phone,
     email: (input.email ?? "").trim(),
     firstVisitAt: visitDate,
     lastVisitAt: visitDate,

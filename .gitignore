@@ -33,6 +33,11 @@ yarn-error.log*
 # env files
 .env
 .env*.local
+.env.production
+render.env
+
+# Local-only guide + lien page réservation (jamais commit / jamais build prod)
+.local/
 
 # calculateur estimates (local salon data)
 # keep the file tracked empty by default — runtime writes stay local if preferred
@@ -40,3 +45,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+buca-reactpress.zip

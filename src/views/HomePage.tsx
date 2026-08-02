@@ -26,6 +26,7 @@ import {
   SALON_CALL_PHONE_DISPLAY,
   SALON_CALL_PHONE_TEL,
 } from "@/lib/swiss-phone";
+import LocalReservationLink from "@local/reservation-link";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -159,6 +160,8 @@ type BookResponse = {
   end?: string;
   firstName?: string;
   servicesLabel?: string;
+  clientRecorded?: boolean;
+  clientRecordError?: string | null;
 };
 
 function BrandHeader({ tagline }: { tagline?: string }) {
@@ -176,6 +179,7 @@ function BrandHeader({ tagline }: { tagline?: string }) {
       <p className="salon-brand__eyebrow">Coiffure</p>
       <h1 className="salon-brand__name">{SALON_NAME}</h1>
       {tagline ? <p className="salon-brand__tagline">{tagline}</p> : null}
+      <LocalReservationLink />
     </header>
   );
 }
@@ -518,6 +522,13 @@ export default function HomePage() {
         }
         if (selectedDate && quote) void loadSlots(selectedDate, quote.minutes);
         return;
+      }
+      if (data.clientRecorded === false) {
+        message.warning(
+          data.clientRecordError
+            ? `RDV enregistré dans l’agenda, mais fiche client non mise à jour : ${data.clientRecordError}`
+            : "RDV enregistré dans l’agenda, mais fiche client non mise à jour (fichier clients).",
+        );
       }
       setConfirmed({
         start: data.start ?? selectedSlot.start,

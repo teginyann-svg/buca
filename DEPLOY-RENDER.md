@@ -52,13 +52,19 @@ Uploade **tout** le contenu de `dist/` vers :
 wp-content/reactpress/apps/buca/dist/
 ```
 
+(App ReactPress créée en mode **Vite**. Détail : `DEPLOY-REACTPRESS.md`.)
+
 Page : [https://kod200.com/buca](https://kod200.com/buca)
 
 ## 5. Limites du plan Free
 
 - Le service **s’endort** après ~15 min sans trafic → 1re requête lente.
-- Disque **éphémère** : fichier clients peut être perdu au redémarrage.  
-  → Agenda Google = source de vérité des RDV ; **Backup CSV** régulier côté salon.
+- Disque **éphémère** (`/tmp/reservsalon-data`) : `clients.json` / `clients.csv`
+  sont **effacés** au sleep ou redeploy. Après redémarrage, l’API repart du
+  fichier bundlé du repo (souvent vide / ancien).
+  - **RDV** = Google Calendar (pas touchés).
+  - **Fiches clients** = Backup CSV + Import CSV après chaque période importante,
+    ou disque persistant Render + variable `DATA_DIR=/var/data` (ou chemin du mount).
 
 ## 6. Blueprint optionnel
 
