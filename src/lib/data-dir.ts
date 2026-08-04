@@ -1,10 +1,10 @@
 import path from "node:path";
 
 /**
- * Répertoire des JSON locaux (clients, device-bookings, estimates).
+ * Répertoire des JSON locaux (clients, bookings, device-bookings, estimates).
  * Sur Render/Vercel sans volume : /tmp (éphémère → perdu au sleep/redeploy).
- * Pour persister : monter un disque et définir DATA_DIR, + Backup CSV régulier.
- * Les RDV restent dans Google Calendar (indépendant de ce dossier).
+ * Pour persister : monter un disque et définir DATA_DIR.
+ * Les RDV sont dans bookings.json (plus Google OAuth en runtime).
  */
 export function getDataDir(): string {
   if (process.env.DATA_DIR?.trim()) {

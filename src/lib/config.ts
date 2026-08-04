@@ -22,21 +22,13 @@ function serverEnv(key: string): string | undefined {
   return process.env?.[key];
 }
 
-/** Google Calendar ID (email or "primary"). */
+/** Google Calendar ID — uniquement pour scripts de migration. */
 export const CALENDAR_ID =
   serverEnv("GOOGLE_CALENDAR_ID") ?? "redroomcoiffure@gmail.com";
 
-/**
- * Agenda public Google « Jours fériés en Suisse »
- * (déjà abonné sur le compte salon).
- */
-export const SWISS_HOLIDAYS_CALENDAR_ID =
-  serverEnv("GOOGLE_HOLIDAYS_CALENDAR_ID") ??
-  "fr.ch#holiday@group.v.calendar.google.com";
-
 export const SALON_NAME = "Réservez un RDV avec Danijela";
 
-/** Lieu affiché dans Google Agenda. */
+/** Lieu affiché (historique / libellés). */
 export const SALON_LOCATION = "Red Room Coiffure";
 
 /**

@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSalonCode } from "@/lib/admin-auth";
 import { TIMEZONE } from "@/lib/config";
-import { listWeekBookings } from "@/lib/google-calendar";
+import { listWeekBookings } from "@/lib/bookings";
 import { getDeviceSeverityHint } from "@/lib/device-bookings";
 import { fetchSwissClosingHolidaysInRange } from "@/lib/swiss-holidays";
 

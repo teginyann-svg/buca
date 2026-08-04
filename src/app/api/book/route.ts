@@ -16,7 +16,7 @@ import { isDisposableEmail } from "@/lib/disposable-emails";
 import {
   createBookingEvent,
   fetchBusyIntervals,
-} from "@/lib/google-calendar";
+} from "@/lib/bookings";
 import { assertValidSwissPhone, checkSwissPhone } from "@/lib/swiss-phone";
 import { isSwissHolidayDate } from "@/lib/swiss-holidays";
 
@@ -193,6 +193,13 @@ export async function POST(request: Request) {
       ...(disposableEmail ? ["Email jetable"] : []),
     ];
 
+    const bookingGender =
+      selection.coupe === "homme"
+        ? ("H" as const)
+        : selection.coupe === "long" || selection.coupe === "court"
+          ? ("F" as const)
+          : null;
+
     let clientRecorded = false;
     let clientRecordError: string | null = null;
     try {
@@ -202,6 +209,7 @@ export async function POST(request: Request) {
         lastName: clientLastName,
         visitDate: date,
         email: email || undefined,
+        gender: bookingGender,
         isSuspect: clientSuspectReasons.length > 0,
         suspectReasons: clientSuspectReasons,
       });

@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "lint": "next lint",
     "auth:google": "tsx scripts/google-oauth.ts",
-    "clients:sync": "tsx scripts/sync-clients-from-calendar.ts"
+    "clients:sync": "tsx scripts/sync-clients-from-calendar.ts",
+    "bookings:migrate-google": "tsx scripts/migrate-bookings-from-google.ts"
   },
   "dependencies": {
     "@ant-design/cssinjs": "^1.23.0",

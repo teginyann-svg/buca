@@ -1,71 +1,54 @@
 # Déploiement API sur Render
 
 Front WordPress : [https://kod200.com/buca](https://kod200.com/buca)  
-API Node : service Render (ex. `https://reservsalon.onrender.com`)
+API : service Render (ex. `https://buca.onrender.com`)
 
-## 1. Créer le Web Service
+Agenda = fichier **`bookings.json`** (plus d’OAuth Google en runtime).  
+Jours fériés = API publique Nager.Date (CH / Zurich).
 
-1. Va sur [render.com](https://render.com) → **New** → **Web Service**.
-2. Connecte le repo Git **Reservsalon** (ou déploie depuis un zip / CLI).
-3. Réglages :
+## 1. Web Service
 
 | Champ | Valeur |
 | --- | --- |
-| **Name** | `reservsalon-api` (ou autre) |
-| **Runtime** | Node |
 | **Build Command** | `npm install && npm run build:api` |
 | **Start Command** | `npx next start -p $PORT` |
-| **Instance** | Free |
+| **Instance** | Free ou payant + **disque** |
 
-## 2. Variables d’environnement (Environment)
+## 2. Variables d’environnement
 
 | Variable | Exemple |
 | --- | --- |
-| `GOOGLE_CLIENT_ID` | … |
-| `GOOGLE_CLIENT_SECRET` | … |
-| `GOOGLE_REFRESH_TOKEN` | … |
-| `GOOGLE_CALENDAR_ID` | `redroomcoiffure@gmail.com` |
 | `SALON_ADMIN_CODE` | ton code salon |
 | `CORS_ORIGINS` | `https://kod200.com,https://www.kod200.com` |
+| `DATA_DIR` | chemin du disque monté (ex. `/var/data`) — **fortement recommandé** |
 | `NODE_VERSION` | `20` |
 
-Optionnel : `GOOGLE_HOLIDAYS_CALENDAR_ID`.
+Google n’est plus nécessaire en runtime.
 
-**Save** → attends le premier deploy (quelques minutes).
+## 3. Persistance (important)
 
-## 3. Vérifier l’API
+Sans `DATA_DIR` sur un volume, Render free écrit dans `/tmp` → **RDV et clients perdus** au sleep/redeploy.
 
-Ouvre : `https://TON-SERVICE.onrender.com/api/holidays`  
+1. Render → Disk → monte ex. `/var/data`
+2. `DATA_DIR=/var/data`
+3. Après migration locale, uploade `bookings.json` + `clients.json` dans ce dossier  
+   (ou commit `data/*.json` pour seed au premier boot via copie bundlée)
 
-→ JSON avec des dates = OK.  
-Au premier appel après inactivité, attends 30–60 s (cold start free).
+## 4. Migration Google → bookings.json (une fois)
 
-## 4. Build du front ReactPress
+En local, avec un token Google encore valide :
 
 ```bash
-VITE_API_BASE=https://TON-SERVICE.onrender.com npm run build
+npm run auth:google          # si invalid_grant
+npm run bookings:migrate-google
 ```
 
-Uploade **tout** le contenu de `dist/` vers :
+Commit / copie `data/bookings.json` vers le serveur (`DATA_DIR` ou repo).
 
-```
-wp-content/reactpress/apps/buca/dist/
-```
+## 5. Vérifier
 
-(App ReactPress créée en mode **Vite**. Détail : `DEPLOY-REACTPRESS.md`.)
+`https://TON-SERVICE.onrender.com/api/holidays` → JSON de dates (sans `invalid_grant`).
 
-Page : [https://kod200.com/buca](https://kod200.com/buca)
+## 6. Front ReactPress
 
-## 5. Limites du plan Free
-
-- Le service **s’endort** après ~15 min sans trafic → 1re requête lente.
-- Disque **éphémère** (`/tmp/reservsalon-data`) : `clients.json` / `clients.csv`
-  sont **effacés** au sleep ou redeploy. Après redémarrage, l’API repart du
-  fichier bundlé du repo (souvent vide / ancien).
-  - **RDV** = Google Calendar (pas touchés).
-  - **Fiches clients** = Backup CSV + Import CSV après chaque période importante,
-    ou disque persistant Render + variable `DATA_DIR=/var/data` (ou chemin du mount).
-
-## 6. Blueprint optionnel
-
-Le fichier `render.yaml` peut être utilisé (Render → New → Blueprint) si le repo est sur GitHub/GitLab.
+Voir [`DEPLOY-REACTPRESS.md`](DEPLOY-REACTPRESS.md) — upload `build/` + vider WP Super Cache.

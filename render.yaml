@@ -14,13 +14,8 @@ services:
         value: "20"
       - key: CORS_ORIGINS
         value: https://kod200.com,https://www.kod200.com
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_REFRESH_TOKEN
-        sync: false
-      - key: GOOGLE_CALENDAR_ID
-        sync: false
       - key: SALON_ADMIN_CODE
+        sync: false
+      # Recommandé : disque monté + DATA_DIR=/var/data (sinon /tmp, perdu au sleep)
+      - key: DATA_DIR
         sync: false

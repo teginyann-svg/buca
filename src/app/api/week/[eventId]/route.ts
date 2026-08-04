@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSalonCode } from "@/lib/admin-auth";
-import { deleteBookingEvent } from "@/lib/google-calendar";
+import { deleteBookingEvent } from "@/lib/bookings";
 
 type RouteContext = {
   params: Promise<{ eventId: string }>;

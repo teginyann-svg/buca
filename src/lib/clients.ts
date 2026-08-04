@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { ClientInput, ClientRecord } from "./client-types";
+import type { ClientGender, ClientInput, ClientRecord } from "./client-types";
 import { clientsFromCsv, clientsToCsv } from "./clients-csv";
 import { getDataDir } from "./data-dir";
 import { isDisposableEmail } from "./disposable-emails";
@@ -347,9 +347,19 @@ export async function validateClient(
   });
 }
 
+/** Garde la valeur salon si déjà renseignée ; sinon prend celle de la réservation. */
+function completeField(existing: string, incoming: string | undefined): string {
+  const prev = existing.trim();
+  const next = (incoming ?? "").trim();
+  if (prev) return existing;
+  return next;
+}
+
 /**
  * Met à jour (ou crée) la fiche client après une réservation.
  * Correspondance par numéro de téléphone.
+ * Les champs vides sont complétés si la cliente fournit plus d’infos
+ * (prénom, nom, email, genre) — sans écraser ce qui est déjà rempli.
  */
 export async function recordVisitFromBooking(input: {
   phone: string;
@@ -357,6 +367,7 @@ export async function recordVisitFromBooking(input: {
   lastName?: string;
   visitDate: string;
   email?: string;
+  gender?: ClientGender | null;
   isSuspect?: boolean;
   suspectReasons?: string[];
 }): Promise<ClientRecord> {
@@ -383,13 +394,18 @@ export async function recordVisitFromBooking(input: {
       !existing.validatedAt &&
       (input.isSuspect || extraReasons.length > 0 || existing.isSuspect);
 
+    const nextGender =
+      existing.gender ??
+      (input.gender === "H" || input.gender === "F" ? input.gender : null);
+
     const patched = await updateClient(existing.id, {
       phone: existing.phone?.trim() ? existing.phone : phone,
       firstVisitAt,
       lastVisitAt,
-      firstName: existing.firstName || input.firstName,
-      lastName: existing.lastName || (input.lastName ?? ""),
-      email: existing.email || input.email || existing.email,
+      firstName: completeField(existing.firstName, input.firstName),
+      lastName: completeField(existing.lastName, input.lastName),
+      email: completeField(existing.email, input.email),
+      gender: nextGender,
       isSuspect: shouldFlag ? true : undefined,
       suspectReasons: shouldFlag
         ? [...existing.suspectReasons, ...extraReasons].filter(
@@ -403,11 +419,15 @@ export async function recordVisitFromBooking(input: {
     return patched;
   }
 
+  const gender =
+    input.gender === "H" || input.gender === "F" ? input.gender : null;
+
   return createClient({
     firstName: input.firstName.trim(),
     lastName: (input.lastName ?? "").trim(),
     phone,
     email: (input.email ?? "").trim(),
+    gender,
     firstVisitAt: visitDate,
     lastVisitAt: visitDate,
     recettes: [""],

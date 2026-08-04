@@ -1,12 +1,7 @@
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
-import {
-  BOOKING_HORIZON_DAYS,
-  SWISS_HOLIDAYS_CALENDAR_ID,
-  TIMEZONE,
-} from "./config";
-import { getCalendarClient } from "./google-calendar";
+import { BOOKING_HORIZON_DAYS, TIMEZONE } from "./config";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -16,76 +11,77 @@ export type SwissHoliday = {
   summary: string;
 };
 
-/** True for closing public holidays; false for observances / DST / memorial days. */
-export function isSwissClosingHoliday(event: {
-  summary?: string | null;
-  description?: string | null;
-}): boolean {
-  const summary = event.summary ?? "";
-  const description = event.description ?? "";
-  const firstLine = description.split("\n")[0]?.trim() ?? "";
+type NagerHoliday = {
+  date: string;
+  localName?: string;
+  name?: string;
+  counties?: string[] | null;
+  types?: string[];
+};
 
-  if (/heure d['’]/i.test(summary)) return false;
-  if (/daylight saving|ende der sommerzeit|ende der winterzeit/i.test(summary)) {
-    return false;
-  }
-  if (/journée d['’]observance/i.test(firstLine)) return false;
-  if (/^Observance\b/i.test(firstLine)) return false;
-  if (/^Gedenktag\b/i.test(firstLine)) return false;
+/** Jours fériés CH nationaux + canton Zurich (salon). */
+function appliesToZurich(h: NagerHoliday): boolean {
+  if (!h.counties || h.counties.length === 0) return true;
+  return h.counties.some(
+    (c) => c === "CH-ZH" || c.endsWith("-ZH") || c.includes("ZH"),
+  );
+}
 
-  // National public holiday
-  if (/^Jour férié$/i.test(firstLine)) return true;
-  if (/^Public holiday$/i.test(firstLine)) return true;
-  if (/^Gesetzlicher Feiertag$/i.test(firstLine)) return true;
-
-  // Regional public holiday that applies to Zurich
-  if (
-    /jour férié|public holiday|(gesetzlicher )?feiertag/i.test(firstLine) &&
-    /zurich|zürich/i.test(description)
-  ) {
-    return true;
-  }
-
-  return false;
+function isPublicHolidayType(h: NagerHoliday): boolean {
+  if (!h.types || h.types.length === 0) return true;
+  return h.types.some((t) => /public/i.test(t));
 }
 
 let cache: { expiresAt: number; holidays: SwissHoliday[] } | null = null;
 const CACHE_MS = 12 * 60 * 60 * 1000;
-const rangeCache = new Map<string, { expiresAt: number; holidays: SwissHoliday[] }>();
+const rangeCache = new Map<
+  string,
+  { expiresAt: number; holidays: SwissHoliday[] }
+>();
+
+async function fetchNagerYear(year: number): Promise<SwissHoliday[]> {
+  const url = `https://date.nager.at/api/v3/PublicHolidays/${year}/CH`;
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error(`Jours fériés CH indisponibles (${res.status}).`);
+  }
+  const data = (await res.json()) as NagerHoliday[];
+  const out: SwissHoliday[] = [];
+  const seen = new Set<string>();
+  for (const h of data) {
+    if (!appliesToZurich(h) || !isPublicHolidayType(h)) continue;
+    if (!h.date || seen.has(h.date)) continue;
+    seen.add(h.date);
+    out.push({
+      date: h.date,
+      summary: (h.localName || h.name || "Jour férié").trim(),
+    });
+  }
+  return out;
+}
 
 async function listClosingHolidaysBetween(
   timeMin: string,
   timeMax: string,
 ): Promise<SwissHoliday[]> {
-  const calendar = getCalendarClient();
-  const response = await calendar.events.list({
-    calendarId: SWISS_HOLIDAYS_CALENDAR_ID,
-    timeMin,
-    timeMax,
-    singleEvents: true,
-    orderBy: "startTime",
-    maxResults: 250,
-  });
-
-  const holidays: SwissHoliday[] = [];
-  const seen = new Set<string>();
-
-  for (const event of response.data.items ?? []) {
-    if (!isSwissClosingHoliday(event)) continue;
-    const date =
-      event.start?.date ??
-      (event.start?.dateTime
-        ? dayjs(event.start.dateTime).tz(TIMEZONE).format("YYYY-MM-DD")
-        : null);
-    if (!date || seen.has(date)) continue;
-    seen.add(date);
-    holidays.push({
-      date,
-      summary: event.summary?.trim() || "Jour férié",
-    });
+  const start = dayjs(timeMin).tz(TIMEZONE);
+  const end = dayjs(timeMax).tz(TIMEZONE);
+  const years = new Set<number>();
+  years.add(start.year());
+  years.add(end.year());
+  const all: SwissHoliday[] = [];
+  for (const year of years) {
+    all.push(...(await fetchNagerYear(year)));
   }
-
-  return holidays;
+  return all.filter((h) => {
+    const d = dayjs.tz(h.date, TIMEZONE);
+    return (
+      (d.isAfter(start, "day") || d.isSame(start, "day")) &&
+      (d.isBefore(end, "day") || d.isSame(end, "day"))
+    );
+  });
 }
 
 export async function fetchSwissClosingHolidays(
@@ -106,7 +102,6 @@ export async function fetchSwissClosingHolidays(
   return holidays;
 }
 
-/** Jours fériés fermeture sur une plage (ex. semaine Mes RDVs). */
 export async function fetchSwissClosingHolidaysInRange(
   timeMin: string,
   timeMax: string,
@@ -133,4 +128,18 @@ export async function isSwissHolidayDate(
 ): Promise<boolean> {
   const set = await getSwissHolidayDateSet(now);
   return set.has(dateIso);
+}
+
+/** Conservé pour compat tests / anciens appels (Nager n’a pas ces libellés). */
+export function isSwissClosingHoliday(event: {
+  summary?: string | null;
+  description?: string | null;
+}): boolean {
+  const summary = event.summary ?? "";
+  const description = event.description ?? "";
+  const firstLine = description.split("\n")[0]?.trim() ?? "";
+  if (/heure d['’]/i.test(summary)) return false;
+  if (/journée d['’]observance/i.test(firstLine)) return false;
+  if (/^Observance\b/i.test(firstLine)) return false;
+  return true;
 }

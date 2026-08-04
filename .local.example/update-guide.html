@@ -100,6 +100,7 @@ npm run dev</pre>
         </ol>
         <p class="muted">
           Variables : <code>render.env</code> / dashboard Render (pas dans git).
+          Migration one-shot Google : <code>npm run bookings:migrate-google</code>.
         </p>
       </div>
 
@@ -140,7 +141,42 @@ npm run build</pre>
       </div>
 
       <div class="card">
-        <h2>5. Vérifier en ligne</h2>
+        <h2>5. Vider le cache WordPress</h2>
+        <p class="muted">
+          kod200.com utilise <strong>WP Super Cache</strong> (+ cache Divi). Sans
+          vidage, l’ancien JS peut rester (404 / page blanche / UI obsolète).
+        </p>
+        <ol>
+          <li>
+            Admin WP → <strong>Réglages → WP Super Cache</strong> →
+            <strong>Delete Cache</strong> / Delete Cached Pages
+            (onglet Easy ou Contents).
+          </li>
+          <li>
+            <strong>Divi</strong> : Theme Options → Builder → Advanced → Clear
+            (Static CSS / cache), ou menu Divi dans la barre admin si proposé.
+          </li>
+          <li>
+            Si Cloudflare / cache hébergeur : vider aussi ce cache.
+          </li>
+          <li>
+            Navigateur : hard refresh
+            <strong>Cmd+Shift+R</strong> sur
+            <a href="https://kod200.com/buca/" target="_blank" rel="noreferrer"
+              >kod200.com/buca</a
+            >.
+          </li>
+        </ol>
+        <p>
+          Contrôle Network : le JS ReactPress
+          (<code>static/index-….js</code>) doit être en <strong>200</strong>,
+          aligné avec <code>asset-manifest.json</code> (pas un ancien hash en
+          404).
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>6. Vérifier en ligne</h2>
         <ol>
           <li>
             <a href="https://kod200.com/buca/" target="_blank" rel="noreferrer"

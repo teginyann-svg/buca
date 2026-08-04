@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { computeFreeSlots } from "@/lib/availability";
 import { SLOT_DURATION_MINUTES, TIMEZONE } from "@/lib/config";
-import { fetchBusyIntervals } from "@/lib/google-calendar";
+import { fetchBusyIntervals } from "@/lib/bookings";
 import { isSwissHolidayDate } from "@/lib/swiss-holidays";
 
 dayjs.extend(utc);

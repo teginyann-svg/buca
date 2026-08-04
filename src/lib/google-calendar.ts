@@ -2,6 +2,14 @@ import { google } from "googleapis";
 import { CALENDAR_ID, SALON_LOCATION, TIMEZONE } from "./config";
 import type { WeekBooking } from "./booking-types";
 
+/**
+ * Accès Google Calendar — réservé aux scripts de migration
+ * (`npm run bookings:migrate-google`, `clients:sync`).
+ * Le runtime API utilise `src/lib/bookings.ts`.
+ *
+ * Si `invalid_grant` : `npm run auth:google` puis relancer la migration.
+ */
+
 export type { WeekBooking } from "./booking-types";
 
 function requireEnv(name: string): string {
