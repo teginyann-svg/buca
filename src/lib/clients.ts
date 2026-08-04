@@ -5,6 +5,7 @@ import type { ClientGender, ClientInput, ClientRecord } from "./client-types";
 import { clientsFromCsv, clientsToCsv } from "./clients-csv";
 import { getDataDir } from "./data-dir";
 import { isDisposableEmail } from "./disposable-emails";
+import { getSupabase, isSupabaseConfigured } from "./supabase";
 import {
   checkSwissPhone,
   normalizeToSwissNational,
@@ -14,6 +15,27 @@ import {
 export type { ClientGender, ClientInput, ClientRecord } from "./client-types";
 export { formatBirthDate } from "./client-types";
 export { clientsToCsv, clientsFromCsv } from "./clients-csv";
+
+type ClientRow = {
+  id: string;
+  gender: string | null;
+  last_name: string;
+  first_name: string;
+  birth_day: number | null;
+  birth_month: number | null;
+  birth_year: number | null;
+  address: string;
+  phone: string;
+  email: string;
+  recettes: string[];
+  first_visit_at: string | null;
+  last_visit_at: string | null;
+  is_suspect: boolean;
+  suspect_reasons: string[];
+  validated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 function dataPaths() {
   const DATA_DIR = getDataDir();
@@ -106,6 +128,54 @@ function normalizeClientRow(row: Record<string, unknown>): ClientRecord | null {
   };
 }
 
+function rowToClient(row: ClientRow): ClientRecord {
+  return {
+    id: row.id,
+    gender: row.gender === "H" || row.gender === "F" ? row.gender : null,
+    lastName: row.last_name ?? "",
+    firstName: row.first_name ?? "",
+    birthDay: row.birth_day,
+    birthMonth: row.birth_month,
+    birthYear: row.birth_year,
+    address: row.address ?? "",
+    phone: row.phone ?? "",
+    email: row.email ?? "",
+    recettes: sanitizeRecettes(row.recettes),
+    firstVisitAt: row.first_visit_at,
+    lastVisitAt: row.last_visit_at,
+    isSuspect: Boolean(row.is_suspect),
+    suspectReasons: Array.isArray(row.suspect_reasons)
+      ? row.suspect_reasons.filter((r): r is string => typeof r === "string")
+      : [],
+    validatedAt: row.validated_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function clientToRow(c: ClientRecord): ClientRow {
+  return {
+    id: c.id,
+    gender: c.gender,
+    last_name: c.lastName,
+    first_name: c.firstName,
+    birth_day: c.birthDay,
+    birth_month: c.birthMonth,
+    birth_year: c.birthYear,
+    address: c.address,
+    phone: c.phone,
+    email: c.email,
+    recettes: c.recettes,
+    first_visit_at: c.firstVisitAt,
+    last_visit_at: c.lastVisitAt,
+    is_suspect: c.isSuspect,
+    suspect_reasons: c.suspectReasons,
+    validated_at: c.validatedAt,
+    created_at: c.createdAt,
+    updated_at: c.updatedAt,
+  };
+}
+
 function phoneSuspectReasons(phone: string): string[] {
   if (!phone.trim()) return [];
   const check = checkSwissPhone(phone);
@@ -127,7 +197,17 @@ function emailSuspectReasons(email: string): string[] {
   return [];
 }
 
-export async function readClients(): Promise<ClientRecord[]> {
+function sortClients(clients: ClientRecord[]): ClientRecord[] {
+  return [...clients].sort((a, b) =>
+    `${a.lastName} ${a.firstName}`.localeCompare(
+      `${b.lastName} ${b.firstName}`,
+      "fr",
+      { sensitivity: "base" },
+    ),
+  );
+}
+
+async function readClientsFile(): Promise<ClientRecord[]> {
   await ensureFile();
   const { FILE_PATH } = dataPaths();
   const raw = await fs.readFile(FILE_PATH, "utf8");
@@ -146,18 +226,56 @@ export async function readClients(): Promise<ClientRecord[]> {
   }
 }
 
-async function writeClients(clients: ClientRecord[]): Promise<void> {
+async function writeClientsFile(clients: ClientRecord[]): Promise<void> {
   await ensureFile();
   const { FILE_PATH, CSV_PATH } = dataPaths();
   const payload = `${JSON.stringify(clients, null, 2)}\n`;
   await fs.writeFile(FILE_PATH, payload, "utf8");
-  // CSV = même source que le JSON (Backup / Import). Échec = erreur réelle.
   await writeClientsCsvBackup(clients);
   try {
     await fs.access(CSV_PATH);
   } catch {
     throw new Error(`CSV clients introuvable après écriture (${CSV_PATH}).`);
   }
+}
+
+async function readClientsDb(): Promise<ClientRecord[]> {
+  const { data, error } = await getSupabase().from("clients").select("*");
+  if (error) throw new Error(`Supabase clients: ${error.message}`);
+  return sortClients(((data ?? []) as ClientRow[]).map(rowToClient));
+}
+
+async function replaceClientsDb(clients: ClientRecord[]): Promise<void> {
+  const sb = getSupabase();
+  const { error: delErr } = await sb
+    .from("clients")
+    .delete()
+    .not("id", "is", null);
+  if (delErr) throw new Error(`Supabase clients clear: ${delErr.message}`);
+  if (clients.length === 0) return;
+  const { error } = await sb.from("clients").upsert(clients.map(clientToRow));
+  if (error) throw new Error(`Supabase clients write: ${error.message}`);
+}
+
+export async function readClients(): Promise<ClientRecord[]> {
+  if (isSupabaseConfigured()) return readClientsDb();
+  return readClientsFile();
+}
+
+async function writeClients(clients: ClientRecord[]): Promise<void> {
+  if (isSupabaseConfigured()) {
+    await replaceClientsDb(clients);
+    return;
+  }
+  await writeClientsFile(clients);
+}
+
+/** Remplace tout le fichier / table (migration / seed). */
+export async function replaceAllClients(
+  clients: ClientRecord[],
+): Promise<number> {
+  await writeClients(clients);
+  return clients.length;
 }
 
 /** Contenu CSV à jour (pour téléchargement / copie). */
@@ -180,7 +298,16 @@ export async function importClientsFromCsv(text: string): Promise<number> {
 }
 
 export async function getClientById(id: string): Promise<ClientRecord | null> {
-  const clients = await readClients();
+  if (isSupabaseConfigured()) {
+    const { data, error } = await getSupabase()
+      .from("clients")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(`Supabase get client: ${error.message}`);
+    return data ? rowToClient(data as ClientRow) : null;
+  }
+  const clients = await readClientsFile();
   return clients.find((c) => c.id === id) ?? null;
 }
 
@@ -190,13 +317,10 @@ export async function findClientByPhone(
   const needle = phoneMatchKey(phone);
   if (!needle) return null;
   const clients = await readClients();
-  return (
-    clients.find((c) => phoneMatchKey(c.phone) === needle) ?? null
-  );
+  return clients.find((c) => phoneMatchKey(c.phone) === needle) ?? null;
 }
 
 export async function createClient(input: ClientInput): Promise<ClientRecord> {
-  const clients = await readClients();
   const stamp = nowIso();
   const phone = (input.phone ?? "").trim();
   const phoneReasons = phoneSuspectReasons(phone);
@@ -230,15 +354,18 @@ export async function createClient(input: ClientInput): Promise<ClientRecord> {
     createdAt: stamp,
     updatedAt: stamp,
   };
+
+  if (isSupabaseConfigured()) {
+    const { error } = await getSupabase()
+      .from("clients")
+      .insert(clientToRow(client));
+    if (error) throw new Error(`Supabase create client: ${error.message}`);
+    return client;
+  }
+
+  const clients = await readClientsFile();
   clients.push(client);
-  clients.sort((a, b) =>
-    `${a.lastName} ${a.firstName}`.localeCompare(
-      `${b.lastName} ${b.firstName}`,
-      "fr",
-      { sensitivity: "base" },
-    ),
-  );
-  await writeClients(clients);
+  await writeClientsFile(sortClients(clients));
   return client;
 }
 
@@ -246,11 +373,9 @@ export async function updateClient(
   id: string,
   input: ClientInput,
 ): Promise<ClientRecord | null> {
-  const clients = await readClients();
-  const index = clients.findIndex((c) => c.id === id);
-  if (index < 0) return null;
+  const prev = await getClientById(id);
+  if (!prev) return null;
 
-  const prev = clients[index];
   const nextPhone =
     input.phone === undefined ? prev.phone : input.phone.trim();
   const nextEmail =
@@ -316,23 +441,38 @@ export async function updateClient(
     updatedAt: nowIso(),
   };
 
+  if (isSupabaseConfigured()) {
+    const { error } = await getSupabase()
+      .from("clients")
+      .update(clientToRow(next))
+      .eq("id", id);
+    if (error) throw new Error(`Supabase update client: ${error.message}`);
+    return next;
+  }
+
+  const clients = await readClientsFile();
+  const index = clients.findIndex((c) => c.id === id);
+  if (index < 0) return null;
   clients[index] = next;
-  clients.sort((a, b) =>
-    `${a.lastName} ${a.firstName}`.localeCompare(
-      `${b.lastName} ${b.firstName}`,
-      "fr",
-      { sensitivity: "base" },
-    ),
-  );
-  await writeClients(clients);
+  await writeClientsFile(sortClients(clients));
   return next;
 }
 
 export async function deleteClient(id: string): Promise<boolean> {
-  const clients = await readClients();
+  if (isSupabaseConfigured()) {
+    const { data, error } = await getSupabase()
+      .from("clients")
+      .delete()
+      .eq("id", id)
+      .select("id");
+    if (error) throw new Error(`Supabase delete client: ${error.message}`);
+    return Boolean(data?.length);
+  }
+
+  const clients = await readClientsFile();
   const next = clients.filter((c) => c.id !== id);
   if (next.length === clients.length) return false;
-  await writeClients(next);
+  await writeClientsFile(next);
   return true;
 }
 

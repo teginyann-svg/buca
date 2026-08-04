@@ -15,13 +15,15 @@
     "lint": "next lint",
     "auth:google": "tsx scripts/google-oauth.ts",
     "clients:sync": "tsx scripts/sync-clients-from-calendar.ts",
-    "bookings:migrate-google": "tsx scripts/migrate-bookings-from-google.ts"
+    "bookings:migrate-google": "tsx scripts/migrate-bookings-from-google.ts",
+    "data:seed-supabase": "tsx scripts/seed-supabase-from-json.ts"
   },
   "dependencies": {
     "@ant-design/cssinjs": "^1.23.0",
     "@ant-design/icons": "^6.3.2",
     "@ant-design/nextjs-registry": "^1.0.2",
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
+    "@supabase/supabase-js": "^2.112.0",
     "antd": "^5.24.2",
     "dayjs": "^1.11.13",
     "googleapis": "^148.0.0",

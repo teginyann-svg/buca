@@ -3,7 +3,7 @@
 Front WordPress : [https://kod200.com/buca](https://kod200.com/buca)  
 API : service Render (ex. `https://buca.onrender.com`)
 
-Agenda = fichier **`bookings.json`** (plus d’OAuth Google en runtime).  
+Agenda / clients / appareils = **Supabase Postgres** (gratuit).  
 Jours fériés = API publique Nager.Date (CH / Zurich).
 
 ## 1. Web Service
@@ -12,7 +12,7 @@ Jours fériés = API publique Nager.Date (CH / Zurich).
 | --- | --- |
 | **Build Command** | `npm install && npm run build:api` |
 | **Start Command** | `npx next start -p $PORT` |
-| **Instance** | Free ou payant + **disque** |
+| **Instance** | Free (pas besoin de disque si Supabase est configuré) |
 
 ## 2. Variables d’environnement
 
@@ -20,34 +20,36 @@ Jours fériés = API publique Nager.Date (CH / Zurich).
 | --- | --- |
 | `SALON_ADMIN_CODE` | ton code salon |
 | `CORS_ORIGINS` | `https://kod200.com,https://www.kod200.com` |
-| `DATA_DIR` | chemin du disque monté (ex. `/var/data`) — **fortement recommandé** |
+| `SUPABASE_URL` | `https://xxxx.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | clé **service_role** (jamais le front) |
 | `NODE_VERSION` | `20` |
 
-Google n’est plus nécessaire en runtime.
+## 3. Supabase (persistance free)
 
-## 3. Persistance (important)
-
-Sans `DATA_DIR` sur un volume, Render free écrit dans `/tmp` → **RDV et clients perdus** au sleep/redeploy.
-
-1. Render → Disk → monte ex. `/var/data`
-2. `DATA_DIR=/var/data`
-3. Après migration locale, uploade `bookings.json` + `clients.json` dans ce dossier  
-   (ou commit `data/*.json` pour seed au premier boot via copie bundlée)
-
-## 4. Migration Google → bookings.json (une fois)
-
-En local, avec un token Google encore valide :
+1. Créer un projet [Supabase](https://supabase.com) (région EU si possible).
+2. SQL Editor → exécuter [`supabase/schema.sql`](supabase/schema.sql).
+3. Settings → API : copier **Project URL** + **service_role**.
+4. En local : les mettre dans `.env.local`, puis :
 
 ```bash
-npm run auth:google          # si invalid_grant
-npm run bookings:migrate-google
+npm run data:seed-supabase
 ```
 
-Commit / copie `data/bookings.json` vers le serveur (`DATA_DIR` ou repo).
+5. Sur Render : mêmes `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` → Redeploy.
+
+Sans ces variables, l’API retombe sur des JSON locaux (`DATA_DIR` ou `/tmp` sur Render free → **éphémère**).
+
+## 4. Migration Google → JSON (une fois, optionnel)
+
+```bash
+npm run auth:google
+npm run bookings:migrate-google
+npm run data:seed-supabase
+```
 
 ## 5. Vérifier
 
-`https://TON-SERVICE.onrender.com/api/holidays` → JSON de dates (sans `invalid_grant`).
+`https://TON-SERVICE.onrender.com/api/holidays` → JSON de dates.
 
 ## 6. Front ReactPress
 

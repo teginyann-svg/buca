@@ -6,6 +6,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { TIMEZONE } from "./config";
 import { getDataDir } from "./data-dir";
+import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -30,6 +31,7 @@ async function ensureFile(): Promise<void> {
     }
   }
 }
+
 /** 2e réservation depuis le même appareil → marquage « Provient d’un même appareil ». */
 export const SAME_DEVICE_BOOKING_THRESHOLD = 2;
 
@@ -72,7 +74,13 @@ export type DeviceLimitResult = {
 
 type DeviceStore = Record<string, DeviceRecord>;
 
-async function readStore(): Promise<DeviceStore> {
+type DeviceRow = {
+  device_id: string;
+  count: number;
+  bookings: DeviceBookingEntry[];
+};
+
+async function readStoreFile(): Promise<DeviceStore> {
   await ensureFile();
   const raw = await fs.readFile(filePath(), "utf8");
   try {
@@ -83,13 +91,83 @@ async function readStore(): Promise<DeviceStore> {
   }
 }
 
-async function writeStore(store: DeviceStore): Promise<void> {
+async function writeStoreFile(store: DeviceStore): Promise<void> {
   await ensureFile();
   await fs.writeFile(
     filePath(),
     `${JSON.stringify(store, null, 2)}\n`,
     "utf8",
   );
+}
+
+async function readStore(): Promise<DeviceStore> {
+  if (!isSupabaseConfigured()) return readStoreFile();
+
+  const { data, error } = await getSupabase()
+    .from("device_bookings")
+    .select("device_id, count, bookings");
+  if (error) throw new Error(`Supabase device_bookings: ${error.message}`);
+
+  const store: DeviceStore = {};
+  for (const row of (data ?? []) as DeviceRow[]) {
+    store[row.device_id] = {
+      count: row.count ?? 0,
+      bookings: Array.isArray(row.bookings) ? row.bookings : [],
+    };
+  }
+  return store;
+}
+
+async function writeStore(store: DeviceStore): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    await writeStoreFile(store);
+    return;
+  }
+
+  const sb = getSupabase();
+  const { error: delErr } = await sb
+    .from("device_bookings")
+    .delete()
+    .not("device_id", "is", null);
+  if (delErr) {
+    throw new Error(`Supabase device_bookings clear: ${delErr.message}`);
+  }
+
+  const rows = Object.entries(store).map(([device_id, record]) => ({
+    device_id,
+    count: record.count,
+    bookings: record.bookings,
+  }));
+  if (rows.length === 0) return;
+  const { error } = await sb.from("device_bookings").insert(rows);
+  if (error) throw new Error(`Supabase device_bookings write: ${error.message}`);
+}
+
+async function upsertDeviceRecord(
+  deviceId: string,
+  record: DeviceRecord,
+): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    const store = await readStoreFile();
+    store[deviceId] = record;
+    await writeStoreFile(store);
+    return;
+  }
+
+  const { error } = await getSupabase().from("device_bookings").upsert({
+    device_id: deviceId,
+    count: record.count,
+    bookings: record.bookings,
+  });
+  if (error) throw new Error(`Supabase device upsert: ${error.message}`);
+}
+
+/** Remplace tout le store (seed). */
+export async function replaceAllDeviceBookings(
+  store: DeviceStore,
+): Promise<number> {
+  await writeStore(store);
+  return Object.keys(store).length;
 }
 
 function visitDayKey(visitDate: string): string {
@@ -317,8 +395,7 @@ export async function recordDeviceBooking(input: {
       },
     ],
   };
-  store[deviceId] = next;
-  await writeStore(store);
+  await upsertDeviceRecord(deviceId, next);
 
   return {
     count: next.count,

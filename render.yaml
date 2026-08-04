@@ -16,6 +16,7 @@ services:
         value: https://kod200.com,https://www.kod200.com
       - key: SALON_ADMIN_CODE
         sync: false
-      # Recommandé : disque monté + DATA_DIR=/var/data (sinon /tmp, perdu au sleep)
-      - key: DATA_DIR
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false

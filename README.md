@@ -1,32 +1,40 @@
 # Reservsalon — réservation Red Room Coiffure
 
 Page web pour réserver une séance. Les créneaux et RDV sont stockés en
-**agenda interne** (`data/bookings.json` / `DATA_DIR`), sans OAuth Google en
-production. Les jours fériés CH viennent de l’API publique [Nager.Date](https://date.nager.at/).
+**agenda interne** : **Supabase Postgres** en prod (Render free), ou fichiers
+`data/*.json` en local sans credentials. Les jours fériés CH viennent de
+l’API publique [Nager.Date](https://date.nager.at/).
 
 ## Prérequis
 
 - Node.js 20+
+- (Prod) projet [Supabase](https://supabase.com) free
 
 ## Installation locale
 
 ```bash
 cp .env.example .env.local
 # Renseigner SALON_ADMIN_CODE
+# Optionnel : SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
 npm install
 ```
 
-### Migration des RDV déjà pris (Google → fichier local)
+Sans Supabase, l’API lit/écrit `data/` (ou `DATA_DIR`).
 
-Si tu as encore un refresh token Google valide :
+### Seed vers Supabase
+
+1. Exécuter [`supabase/schema.sql`](supabase/schema.sql) dans le SQL Editor.
+2. Renseigner `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` dans `.env.local`.
+3. `npm run data:seed-supabase`
+
+### Migration des RDV déjà pris (Google → JSON, optionnel)
 
 ```bash
 # .env.local : GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GOOGLE_CALENDAR_ID
 npm run auth:google   # seulement si invalid_grant
 npm run bookings:migrate-google
+npm run data:seed-supabase   # si Supabase est configuré
 ```
-
-Cela écrit `data/bookings.json` avec tous les RDV Agenda existants.
 
 ## Lancer l’app (développement)
 
@@ -39,15 +47,13 @@ npm run dev:vite
 
 ## Production
 
-- **API** : Render (ou VPS) avec **disque persistant** + `DATA_DIR`  
-  Voir [`DEPLOY-RENDER.md`](DEPLOY-RENDER.md)
+- **API** : Render free + Supabase — [`DEPLOY-RENDER.md`](DEPLOY-RENDER.md)
 - **Front** : ReactPress → [`DEPLOY-REACTPRESS.md`](DEPLOY-REACTPRESS.md)
-
-Variables runtime essentielles :
 
 ```env
 SALON_ADMIN_CODE=…
-DATA_DIR=/var/data          # recommandé en prod
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=…
 CORS_ORIGINS=https://kod200.com,https://www.kod200.com
 ```
 

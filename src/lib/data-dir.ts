@@ -2,9 +2,8 @@ import path from "node:path";
 
 /**
  * Répertoire des JSON locaux (clients, bookings, device-bookings, estimates).
- * Sur Render/Vercel sans volume : /tmp (éphémère → perdu au sleep/redeploy).
- * Pour persister : monter un disque et définir DATA_DIR.
- * Les RDV sont dans bookings.json (plus Google OAuth en runtime).
+ * Utilisé seulement si Supabase n’est pas configuré.
+ * Sur Render sans Supabase ni volume : /tmp (éphémère).
  */
 export function getDataDir(): string {
   if (process.env.DATA_DIR?.trim()) {
